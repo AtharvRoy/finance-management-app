@@ -1,0 +1,7 @@
+:root { font-family: Inter, system-ui, sans-serif; color: #0f172a; }
+body { margin: 0; background: #f8fafc; }
+.container { max-width: 960px; margin: 0 auto; padding: 2rem; display: grid; gap: 1rem; }
+section { background: white; border-radius: 12px; padding: 1rem 1.25rem; box-shadow: 0 4px 18px rgba(0,0,0,0.05); }
+h1 { color: #1d4ed8; }
+h2 { margin: 0 0 0.5rem; }
+ul { columns: 2; padding-left: 1.2rem; }
