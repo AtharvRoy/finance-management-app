@@ -66,18 +66,6 @@ export function App() {
     setSavedScenarios((p) => [scenario, ...p]);
   };
 
-
-  const saveLoan = async () => {
-    const res = await fetch(`${API_BASE}/api/loans`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: USER_ID, ...loanInput })
-    });
-    const loan = await res.json();
-    const scheduleRes = await fetch(`${API_BASE}/api/loans/${loan.id}/schedule`);
-    const scheduleData = await scheduleRes.json();
-    setLoanPreview({ emi: Number(loan.emi_amount ?? loan.emiAmount ?? 0), months: scheduleData.schedule?.length ?? 0 });
-  };
-
   const projection = useMemo(() => {
     const monthlyRate = simInput.returnRateFrequency === 'monthly'
       ? simInput.returnRate / 100
@@ -128,18 +116,6 @@ export function App() {
         <p>Saved scenarios: {savedScenarios.length}</p>
         <div style={{ width: '100%', height: 240 }}><ResponsiveContainer><LineChart data={projection}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="year" /><YAxis /><Tooltip /><Line dataKey="corpus" stroke="#4f46e5" strokeWidth={3} /></LineChart></ResponsiveContainer></div>
       </section>
-
-      <section>
-        <h2>Loans / EMI</h2>
-        <div className="grid">
-          {Object.entries(loanInput).map(([key, value]) => (
-            <label key={key}>{key}<input type={key.includes('Date') ? 'date' : key === 'lenderName' ? 'text' : 'number'} value={value as string | number} onChange={(e) => setLoanInput((p) => ({ ...p, [key]: key.includes('Date') || key === 'lenderName' ? e.target.value : Number(e.target.value) }))} /></label>
-          ))}
-        </div>
-        <button onClick={saveLoan}>Save Loan & Generate Schedule</button>
-        {loanPreview ? <p>Estimated EMI: ₹{loanPreview.emi.toLocaleString()} | Schedule months: {loanPreview.months}</p> : null}
-      </section>
-
     </main>
   );
 }
