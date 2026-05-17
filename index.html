@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finance Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --card:#1f2937; --text:#e5e7eb; --muted:#9ca3af; --accent:#38bdf8; }
+    body { margin:0; font-family:Inter,system-ui,Arial,sans-serif; background:var(--bg); color:var(--text); }
+    .container { max-width:1400px; margin:0 auto; padding:24px; }
+    h1 { margin:0 0 16px; }
+    .filters { display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px; background:var(--panel); padding:16px; border-radius:12px; margin-bottom:18px; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    select,input { width:100%; padding:8px; border-radius:8px; border:1px solid #374151; background:#0b1220; color:var(--text); }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
+    .card { background:var(--card); border-radius:12px; padding:14px; }
+    .card h3 { margin:0 0 8px; font-size:16px; }
+    .desc { color:var(--muted); font-size:13px; margin:0 0 12px; }
+    canvas { width:100%; min-height:220px; }
+    #heatmap { display:grid; grid-template-columns: 90px repeat(6,1fr); gap:4px; font-size:12px; }
+    .cell { padding:8px 6px; border-radius:6px; text-align:center; }
+    .axis { color:var(--muted); font-weight:700; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Personal Finance Analytics Dashboard</h1>
+    <section class="filters">
+      <div><label>Date Range Start</label><input type="date" id="from" value="2025-01-01"></div>
+      <div><label>Date Range End</label><input type="date" id="to" value="2025-12-31"></div>
+      <div><label>Category</label><select id="category"></select></div>
+      <div><label>Person</label><select id="person"></select></div>
+      <div><label>Investment Instrument</label><select id="instrument"></select></div>
+      <div><label>Scenario Mode</label><select id="scenario"></select></div>
+    </section>
+
+    <div class="grid">
+      <article class="card"><h3>Category-wise Monthly Expense</h3><p class="desc">Shows where your money goes each month, split by spending categories.</p><canvas id="expensePie"></canvas></article>
+      <article class="card"><h3>Month-over-Month Spend Trend</h3><p class="desc">Tracks if your total monthly spending is rising or falling over time.</p><canvas id="spendTrend"></canvas></article>
+      <article class="card"><h3>Budget vs Actual</h3><p class="desc">Compares planned budget with actual expense to spot overspending quickly.</p><canvas id="budgetActual"></canvas></article>
+      <article class="card"><h3>SIP Growth Projection</h3><p class="desc">Estimates future portfolio value based on recurring monthly investments.</p><canvas id="sipGrowth"></canvas></article>
+      <article class="card"><h3>Post-tax vs Pre-tax Returns</h3><p class="desc">Highlights how taxes reduce gross returns in real terms.</p><canvas id="taxCompare"></canvas></article>
+      <article class="card"><h3>Inflation-adjusted Corpus</h3><p class="desc">Shows purchasing-power-adjusted wealth instead of just nominal amounts.</p><canvas id="inflationCorpus"></canvas></article>
+      <article class="card"><h3>EMI Outstanding Decline</h3><p class="desc">Visualizes how your loan balance drops as EMIs are paid.</p><canvas id="emiDecline"></canvas></article>
+      <article class="card"><h3>Cashflow Heatmap</h3><p class="desc">Compares monthly income, expense and investment intensity using color strength.</p><div id="heatmap"></div></article>
+    </div>
+  </div>
+
+<script>
+const data = {
+  records: [
+    ...Array.from({length:12}, (_,i)=>{
+      const m=i+1; const month=`2025-${String(m).padStart(2,'0')}`;
+      const categories={Housing:1200+20*i, Food:500+25*Math.sin(i), Travel:200+35*(i%4), Utilities:300+12*i, Leisure:250+30*Math.cos(i)};
+      const income=4200+80*i, invest=700+30*(i%3), expense=Object.values(categories).reduce((a,b)=>a+b,0);
+      return [
+        {month,date:`${month}-10`,person:'Alex',instrument:'Mutual Fund',scenario:'Base',budget:2900+20*i,income,invest,categoryBreakdown:categories},
+        {month,date:`${month}-12`,person:'Taylor',instrument:'ETF',scenario:'Optimistic',budget:2700+15*i,income:3600+70*i,invest:600+25*(i%3),categoryBreakdown:Object.fromEntries(Object.entries(categories).map(([k,v])=>[k,v*0.8]))}
+      ];
+    }).flat()
+  ]
+};
+const $ = id => document.getElementById(id);
+const charts = {};
+function uniq(vals){return ['All',...new Set(vals)];}
+function fillSelect(id, vals){$(id).innerHTML=uniq(vals).map(v=>`<option>${v}</option>`).join('');}
+fillSelect('category', Object.keys(data.records[0].categoryBreakdown));
+fillSelect('person', data.records.map(r=>r.person));
+fillSelect('instrument', data.records.map(r=>r.instrument));
+fillSelect('scenario', data.records.map(r=>r.scenario));
+
+function filtered(){
+  return data.records.filter(r=>{
+    if ($("person").value !== 'All' && r.person !== $("person").value) return false;
+    if ($("instrument").value !== 'All' && r.instrument !== $("instrument").value) return false;
+    if ($("scenario").value !== 'All' && r.scenario !== $("scenario").value) return false;
+    if (r.date < $("from").value || r.date > $("to").value) return false;
+    return true;
+  });
+}
+
+function groupByMonth(rows){
+  const acc={};
+  rows.forEach(r=>{ if(!acc[r.month]) acc[r.month]=[]; acc[r.month].push(r);});
+  return Object.keys(acc).sort().map(m=>({month:m,rows:acc[m]}));
+}
+function upsert(id, config){ if(charts[id]) charts[id].destroy(); charts[id]=new Chart($(id), config); }
+
+function render(){
+  const rows = filtered();
+  const months=groupByMonth(rows);
+  const categoryFilter=$("category").value;
+
+  const catTotals={};
+  rows.forEach(r=>Object.entries(r.categoryBreakdown).forEach(([k,v])=>{ if(categoryFilter==='All'||k===categoryFilter) catTotals[k]=(catTotals[k]||0)+v;}));
+  upsert('expensePie',{type:'doughnut',data:{labels:Object.keys(catTotals),datasets:[{data:Object.values(catTotals)}]},options:{plugins:{legend:{display:true},tooltip:{enabled:true}}}});
+
+  upsert('spendTrend',{type:'line',data:{labels:months.map(m=>m.month),datasets:[{label:'Total Spend',data:months.map(m=>m.rows.reduce((a,r)=>a+Object.values(r.categoryBreakdown).reduce((x,y)=>x+y,0),0)),borderColor:'#38bdf8',tension:0.25}]},options:{plugins:{legend:{display:true},tooltip:{enabled:true}}}});
+
+  upsert('budgetActual',{type:'bar',data:{labels:months.map(m=>m.month),datasets:[{label:'Budget',data:months.map(m=>m.rows.reduce((a,r)=>a+r.budget,0)),backgroundColor:'#22c55e'},{label:'Actual',data:months.map(m=>m.rows.reduce((a,r)=>a+Object.values(r.categoryBreakdown).reduce((x,y)=>x+y,0),0)),backgroundColor:'#ef4444'}]}});
+
+  let principal=0; const sipValues=[]; months.forEach((m,i)=>{const monthly=m.rows.reduce((a,r)=>a+r.invest,0); principal=(principal+monthly)*1.007; sipValues.push(principal);});
+  upsert('sipGrowth',{type:'line',data:{labels:months.map(m=>m.month),datasets:[{label:'Projected Corpus',data:sipValues,borderColor:'#a78bfa'}]}});
+
+  const pre=months.map((m,i)=>sipValues[i]); const post=pre.map(v=>v*0.85);
+  upsert('taxCompare',{type:'bar',data:{labels:months.map(m=>m.month),datasets:[{label:'Pre-tax',data:pre,backgroundColor:'#60a5fa'},{label:'Post-tax',data:post,backgroundColor:'#f59e0b'}]}});
+
+  const inf=pre.map((v,i)=>v/Math.pow(1.005,i+1));
+  upsert('inflationCorpus',{type:'line',data:{labels:months.map(m=>m.month),datasets:[{label:'Nominal Corpus',data:pre,borderColor:'#10b981'},{label:'Inflation-adjusted',data:inf,borderColor:'#f43f5e'}]}});
+
+  let outstanding=250000; const emi=[]; months.forEach(()=>{outstanding=Math.max(0,outstanding*1.004-5200); emi.push(outstanding);});
+  upsert('emiDecline',{type:'line',data:{labels:months.map(m=>m.month),datasets:[{label:'Outstanding Principal',data:emi,borderColor:'#fb7185'}]}});
+
+  const hm = $('heatmap'); hm.innerHTML='';
+  ['Month','Income','Expense','Investment','Net Savings','Expense Ratio','Invest Ratio'].forEach(h=>{const d=document.createElement('div');d.className='cell axis';d.textContent=h;hm.appendChild(d);});
+  months.forEach(m=>{
+    const income=m.rows.reduce((a,r)=>a+r.income,0), expense=m.rows.reduce((a,r)=>a+Object.values(r.categoryBreakdown).reduce((x,y)=>x+y,0),0), inv=m.rows.reduce((a,r)=>a+r.invest,0);
+    const net=income-expense-inv, er=expense/income, ir=inv/income;
+    const vals=[m.month,income,expense,inv,net,er,ir];
+    vals.forEach((v,idx)=>{const d=document.createElement('div'); d.className='cell';
+      if(idx){ const num=typeof v==='number'?v:0; const scaled=Math.min(1,Math.abs(num)/(idx<4?10000:1)); d.style.background=`rgba(56,189,248,${0.15+scaled*0.7})`; }
+      d.textContent=typeof v==='number'?(idx<5?Math.round(v).toLocaleString():`${(v*100).toFixed(1)}%`):v; hm.appendChild(d);
+    });
+  });
+}
+['from','to','category','person','instrument','scenario'].forEach(id=>$(id).addEventListener('change',render));
+render();
+</script>
+</body>
+</html>
