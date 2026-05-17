@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "build": "node -e \"console.log('backend build ok')\""
+    "build": "node -e \"console.log('backend build ok')\"",
+    "test": "node --test src/*.test.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

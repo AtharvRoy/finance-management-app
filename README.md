@@ -1,9 +1,9 @@
 # finance-management-app
 
-A full-stack starter for a finance management system with:
-- Monthly expense tracker with detailed subdivisions
-- Investment simulator (mutual funds, tax, inflation)
-- Loan/EMI tracking foundations
+Production-oriented starter for a finance management platform with:
+- Monthly income + expense tracking by subdivisions
+- Mutual fund simulator (monthly/annual return, tax, inflation, step-up)
+- Loan EMI calculator and amortization schedule API
 
 ## Structure
 - `frontend/` React + TypeScript + Vite + Recharts
@@ -16,21 +16,30 @@ npm install
 npm run dev
 ```
 
-Frontend: http://localhost:5173  
-Backend: http://localhost:4000
+## Test and build
+```bash
+npm run test -w backend
+npm run build
+```
 
-## API Starter Endpoints
+## Backend APIs
 - `GET /health`
 - `GET /api/categories`
+- `POST /api/incomes`
+- `POST /api/expenses`
+- `GET /api/expenses?userId=1&month=2026-05-01`
 - `POST /api/simulator`
+- `POST /api/loans`
 
-Sample simulator payload:
+### Simulator payload
 ```json
 {
-  "investmentPerMonth": 1000,
-  "annualReturnRate": 12,
-  "tenureYears": 10,
+  "investmentPerMonth": 10000,
+  "returnRate": 12,
+  "returnRateFrequency": "annual",
+  "tenureMonths": 180,
   "taxRate": 10,
-  "inflationRate": 6
+  "inflationRate": 6,
+  "annualStepUp": 5
 }
 ```
