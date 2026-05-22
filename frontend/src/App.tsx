@@ -15,6 +15,9 @@ export function App() {
   const [simInput, setSimInput] = useState({ name: 'My Scenario', investmentPerMonth: 10000, returnRate: 12, returnRateFrequency: 'annual', tenureMonths: 180, taxRate: 10, inflationRate: 6, annualStepUp: 5 });
   const [savedScenarios, setSavedScenarios] = useState<any[]>([]);
 
+  const [loanInput, setLoanInput] = useState({ lenderName: 'My Bank', principal: 500000, annualInterestRate: 9, tenureMonths: 120, nextDueDate: '2026-06-05', reminderDate: '2026-06-01' });
+  const [loanPreview, setLoanPreview] = useState<{ emi:number, months:number } | null>(null);
+
   const totalPlanned = useMemo(() => expenseItems.reduce((s, x) => s + x.planned, 0), [expenseItems]);
   const totalActual = useMemo(() => expenseItems.reduce((s, x) => s + x.actual, 0), [expenseItems]);
 
